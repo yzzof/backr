@@ -1,0 +1,23 @@
+{
+  "pi_host": "ds9.local",
+  "pi_port": 22,
+  "pi_user": "fozzy",
+  "pi_private_key_path": "/home/fozzy/.ssh/id_ed25519",
+  "remote_directory": "/media/fozzy/backups/",
+  "backup_paths": [
+    "/"
+  ],
+  "exclude_paths": [
+    "/dev/*",
+    "/proc/*",
+    "/sys/*",
+    "/tmp/*",
+    "/run/*",
+    "/mnt/*",
+    "/media/*",
+    "/swap.img/*",
+    "/swapfile",
+    "/home/fozzy/.config/google-chrome/*",
+    "/home/fozzy/.cache/google-chrome/*"
+  ]
+}
