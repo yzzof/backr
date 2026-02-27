@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use clap::Parser;
 use serde::Deserialize;
 use ssh2::Session;
 use std::cmp::max;
@@ -9,6 +10,27 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+// CLI Arguments (override corresponding config.json fields; pi_* fields cannot be overridden)
+#[derive(Parser, Debug)]
+#[command(about = "Streaming backup tool using tar + SSH/SFTP")]
+struct Cli {
+    /// Compression program to use: pixz (xz) or pigz (gzip). Overrides config.json.
+    #[arg(short = 'c', long)]
+    compression: Option<String>,
+
+    /// Remote directory for backup storage. Overrides config.json.
+    #[arg(short = 'd', long)]
+    remote_directory: Option<String>,
+
+    /// Path to back up; may be specified multiple times. Overrides config.json backup_paths.
+    #[arg(short = 'b', long = "backup-path")]
+    backup_paths: Vec<String>,
+
+    /// Path to exclude from backup; may be specified multiple times. Overrides config.json exclude_paths.
+    #[arg(short = 'e', long = "exclude-path")]
+    exclude_paths: Vec<String>,
+}
+
 // Load Configuration Struct
 #[derive(Deserialize, Debug)]
 struct Config {
@@ -18,6 +40,7 @@ struct Config {
     pi_private_key_path: Option<String>,
     pi_password: Option<String>,
     remote_directory: String,
+    compression: Option<String>,
     backup_paths: Vec<String>,
     exclude_paths: Vec<String>,
 }
@@ -49,7 +72,15 @@ fn run_backup(config: &Config) -> Result<()> {
         .to_string_lossy()
         .replace(|c: char| c.is_whitespace(), "_");
     let timestamp = get_timestamp();
-    let archive_name = format!("{}_backup_{}.tar.xz", hostname, timestamp);
+
+    let compression = config.compression.as_deref().unwrap_or("pixz");
+
+    // Choose archive extension based on compression program
+    let ext = match compression {
+        "pigz" => "gz",
+        _ => "xz",
+    };
+    let archive_name = format!("{}_backup_{}.tar.{}", hostname, timestamp, ext);
 
     // 1. Prepare Paths
     let mut valid_paths = Vec::new();
@@ -73,7 +104,7 @@ fn run_backup(config: &Config) -> Result<()> {
     );
 
     println!("\n📦 Starting Streamed Backup for host: {}", hostname);
-    println!("🔥 Compression: pixz (Multi-threaded)");
+    println!("🔥 Compression: {} (Multi-threaded)", compression);
     println!("📡 Destination: {}:{}", config.pi_host, remote_path);
 
     // 2. Initialize SSH Connection
@@ -128,7 +159,7 @@ fn run_backup(config: &Config) -> Result<()> {
         "--use-compress-program"
     };
     let cpus = max(1, num_cpus::get() / 2);
-    let compress_cmd = format!("pixz -p {}", cpus);
+    let compress_cmd = format!("{} -p {}", compression, cpus);
 
     let mut cmd = Command::new("tar");
     cmd.arg(compress_flag).arg(compress_cmd);
@@ -160,8 +191,8 @@ fn run_backup(config: &Config) -> Result<()> {
     let status = tar_process.wait()?;
     if !status.success() {
         eprintln!(
-            "❌ Tar exited with {}. Check if 'pixz' is installed.",
-            status
+            "❌ Tar exited with {}. Check if '{}' is installed.",
+            status, compression
         );
         anyhow::bail!("Tar process failed");
     } else {
@@ -174,6 +205,8 @@ fn run_backup(config: &Config) -> Result<()> {
 }
 
 fn main() {
+    let cli = Cli::parse();
+
     // Determine config path relative to execution directory
     let config_path = env::current_dir().unwrap_or_default().join("config.json");
 
@@ -186,13 +219,27 @@ fn main() {
         }
     };
 
-    let config: Config = match serde_json::from_str(&config_content) {
+    let mut config: Config = match serde_json::from_str(&config_content) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("❌ Error loading config.json: {}", e);
+            eprintln!("❌ Error parsing config.json: {}", e);
             std::process::exit(1);
         }
     };
+
+    // Apply CLI overrides (pi_* fields are intentionally not overridable via CLI)
+    if let Some(compression) = cli.compression {
+        config.compression = Some(compression);
+    }
+    if let Some(remote_directory) = cli.remote_directory {
+        config.remote_directory = remote_directory;
+    }
+    if !cli.backup_paths.is_empty() {
+        config.backup_paths = cli.backup_paths;
+    }
+    if !cli.exclude_paths.is_empty() {
+        config.exclude_paths = cli.exclude_paths;
+    }
 
     // Run the backup and catch bubbling errors
     if let Err(e) = run_backup(&config) {
