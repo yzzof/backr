@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use serde::Deserialize;
 use ssh2::Session;
 use std::cmp::max;
@@ -11,24 +11,29 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 // CLI Arguments (override corresponding config.json fields; pi_* fields cannot be overridden)
+// Long flags require "=" between flag and value: e.g. --compression=pixz
 #[derive(Parser, Debug)]
-#[command(about = "Streaming backup tool using tar + SSH/SFTP")]
+#[command(about = "Streaming backup tool using tar + SSH/SFTP", disable_help_flag = true)]
 struct Cli {
+    /// Print help
+    #[arg(short = 'h', short_aliases = ['?'], long = "help", action = clap::ArgAction::Help)]
+    help: Option<bool>,
+
     /// Compression program to use: pixz (xz) or pigz (gzip). Overrides config.json.
-    #[arg(short = 'c', long)]
+    #[arg(short = 'c', long, require_equals = true)]
     compression: Option<String>,
 
-    /// Remote directory for backup storage. Overrides config.json.
-    #[arg(short = 'd', long)]
-    remote_directory: Option<String>,
+    /// Remote target directory for backup storage. Overrides config.json.
+    #[arg(short = 't', long, require_equals = true)]
+    target: Option<String>,
 
-    /// Path to back up; may be specified multiple times. Overrides config.json backup_paths.
-    #[arg(short = 'b', long = "backup-path")]
-    backup_paths: Vec<String>,
+    /// Path to include in backup; may be specified multiple times. Overrides config.json include.
+    #[arg(short = 'i', long, require_equals = true)]
+    include: Vec<String>,
 
-    /// Path to exclude from backup; may be specified multiple times. Overrides config.json exclude_paths.
-    #[arg(short = 'e', long = "exclude-path")]
-    exclude_paths: Vec<String>,
+    /// Path to exclude from backup; may be specified multiple times. Overrides config.json exclude.
+    #[arg(short = 'e', long, require_equals = true)]
+    exclude: Vec<String>,
 }
 
 // Load Configuration Struct
@@ -39,10 +44,10 @@ struct Config {
     pi_user: String,
     pi_private_key_path: Option<String>,
     pi_password: Option<String>,
-    remote_directory: String,
+    target: String,
     compression: Option<String>,
-    backup_paths: Vec<String>,
-    exclude_paths: Vec<String>,
+    include: Vec<String>,
+    exclude: Vec<String>,
 }
 
 // Helper: Resolve `~` to the home directory for paths
@@ -84,7 +89,7 @@ fn run_backup(config: &Config) -> Result<()> {
 
     // 1. Prepare Paths
     let mut valid_paths = Vec::new();
-    for p in &config.backup_paths {
+    for p in &config.include {
         let resolved = resolve_path(p);
         if Path::new(&resolved).exists() {
             valid_paths.push(resolved);
@@ -99,7 +104,7 @@ fn run_backup(config: &Config) -> Result<()> {
 
     let remote_path = format!(
         "{}/{}",
-        config.remote_directory.trim_end_matches('/'),
+        config.target.trim_end_matches('/'),
         archive_name
     );
 
@@ -164,7 +169,7 @@ fn run_backup(config: &Config) -> Result<()> {
     let mut cmd = Command::new("tar");
     cmd.arg(compress_flag).arg(compress_cmd);
 
-    for p in &config.exclude_paths {
+    for p in &config.exclude {
         cmd.arg("--exclude").arg(p);
     }
 
@@ -205,12 +210,22 @@ fn run_backup(config: &Config) -> Result<()> {
 }
 
 fn main() {
-    let cli = Cli::parse();
+    // Parse CLI args; print full help and exit on any error (unknown flags, missing =, etc.)
+    let cli = Cli::try_parse().unwrap_or_else(|e| {
+        match e.kind() {
+            // --help / -h / -? handled by clap directly (exits 0)
+            clap::error::ErrorKind::DisplayHelp => e.exit(),
+            _ => {
+                let _ = Cli::command().print_help();
+                eprintln!("\n\nerror: {}", e.kind());
+                std::process::exit(2);
+            }
+        }
+    });
 
     // Determine config path relative to execution directory
     let config_path = env::current_dir().unwrap_or_default().join("config.json");
 
-    // Load config manually here to match the JS global exit exactly
     let config_content = match fs::read_to_string(&config_path) {
         Ok(c) => c,
         Err(e) => {
@@ -231,14 +246,14 @@ fn main() {
     if let Some(compression) = cli.compression {
         config.compression = Some(compression);
     }
-    if let Some(remote_directory) = cli.remote_directory {
-        config.remote_directory = remote_directory;
+    if let Some(target) = cli.target {
+        config.target = target;
     }
-    if !cli.backup_paths.is_empty() {
-        config.backup_paths = cli.backup_paths;
+    if !cli.include.is_empty() {
+        config.include = cli.include;
     }
-    if !cli.exclude_paths.is_empty() {
-        config.exclude_paths = cli.exclude_paths;
+    if !cli.exclude.is_empty() {
+        config.exclude = cli.exclude;
     }
 
     // Run the backup and catch bubbling errors
