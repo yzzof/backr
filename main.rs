@@ -19,11 +19,16 @@ struct Cli {
     #[arg(short = 'h', short_aliases = ['?'], long = "help", action = clap::ArgAction::Help)]
     help: Option<bool>,
 
+    /// Write backup to a local path instead of uploading via SSH/SFTP.
+    /// Can be combined with other short flags, e.g. -lc pixz
+    #[arg(short = 'l', long)]
+    local_target: bool,
+
     /// Compression program to use: pixz (xz) or pigz (gzip). Overrides config.json.
     #[arg(short = 'c', long, require_equals = true)]
     compression: Option<String>,
 
-    /// Remote target directory for backup storage. Overrides config.json.
+    /// Target directory for backup storage. Overrides config.json.
     #[arg(short = 't', long, require_equals = true)]
     target: Option<String>,
 
@@ -72,7 +77,7 @@ fn get_timestamp() -> String {
 }
 
 // Main Backup Logic
-fn run_backup(config: &Config) -> Result<()> {
+fn run_backup(config: &Config, local_target: bool) -> Result<()> {
     let hostname = hostname::get()?
         .to_string_lossy()
         .replace(|c: char| c.is_whitespace(), "_");
@@ -87,7 +92,7 @@ fn run_backup(config: &Config) -> Result<()> {
     };
     let archive_name = format!("{}_backup_{}.tar.{}", hostname, timestamp, ext);
 
-    // 1. Prepare Paths
+    // 1. Prepare include paths
     let mut valid_paths = Vec::new();
     for p in &config.include {
         let resolved = resolve_path(p);
@@ -102,7 +107,7 @@ fn run_backup(config: &Config) -> Result<()> {
         anyhow::bail!("No valid backup paths found.");
     }
 
-    let remote_path = format!(
+    let output_path = format!(
         "{}/{}",
         config.target.trim_end_matches('/'),
         archive_name
@@ -110,101 +115,114 @@ fn run_backup(config: &Config) -> Result<()> {
 
     println!("\n📦 Starting Streamed Backup for host: {}", hostname);
     println!("🔥 Compression: {} (Multi-threaded)", compression);
-    println!("📡 Destination: {}:{}", config.pi_host, remote_path);
 
-    // 2. Initialize SSH Connection
-    let port = config.pi_port.unwrap_or(22);
-    let tcp = TcpStream::connect(format!("{}:{}", config.pi_host, port))
-        .with_context(|| format!("Failed to connect to {}:{}", config.pi_host, port))?;
-
-    let mut session = Session::new()?;
-    session.set_tcp_stream(tcp);
-    session
-        .handshake()
-        .with_context(|| "Failed SSH handshake")?;
-
-    // Auth Configuration
-    if let Some(key_path) = &config.pi_private_key_path {
-        let resolved_key_path = resolve_path(key_path);
-        session
-            .userauth_pubkey_file(&config.pi_user, None, Path::new(&resolved_key_path), None)
-            .with_context(|| {
-                format!(
-                    "Failed to authenticate with private key: {}",
-                    resolved_key_path
-                )
-            })?;
-    } else if let Some(pass) = &config.pi_password {
-        session
-            .userauth_password(&config.pi_user, pass)
-            .with_context(|| "Failed to authenticate with password")?;
-    } else {
-        anyhow::bail!("No authentication method provided in config.json");
-    }
-
-    if !session.authenticated() {
-        anyhow::bail!("SSH Authentication failed");
-    }
-
-    println!("✅ SSH Connection established. Starting stream...");
-
-    // 3. Create Remote Write Stream via SFTP
-    let sftp = session
-        .sftp()
-        .with_context(|| "Failed to initialize SFTP session")?;
-    let mut remote_stream = sftp
-        .create(Path::new(&remote_path))
-        .with_context(|| format!("Failed to create remote file at {}", remote_path))?;
-
-    // 4. Spawn Local Tar Process
+    // 2. Build tar command (common to both local and remote paths)
     let is_gnu_tar = std::env::consts::OS == "linux";
-    let compress_flag = if is_gnu_tar {
-        "-I"
-    } else {
-        "--use-compress-program"
-    };
+    let compress_flag = if is_gnu_tar { "-I" } else { "--use-compress-program" };
     let cpus = max(1, num_cpus::get() / 2);
     let compress_cmd = format!("{} -p {}", compression, cpus);
 
     let mut cmd = Command::new("tar");
     cmd.arg(compress_flag).arg(compress_cmd);
-
     for p in &config.exclude {
         cmd.arg("--exclude").arg(p);
     }
-
     cmd.arg("-cvf").arg("-"); // Create, write to stdout
-
     for p in &valid_paths {
         cmd.arg(p);
     }
-
-    // Capture stdout for piping, inherit stderr to show tar logs natively
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit());
 
-    let mut tar_process = cmd.spawn().with_context(|| "Failed to spawn tar process")?;
+    if local_target {
+        // 3a. Local path: create the output file, then stream tar into it
+        println!("💾 Destination: {}", output_path);
 
-    // 5. Pipe Data: Tar STDOUT -> SFTP Remote Stream
-    if let Some(mut stdout) = tar_process.stdout.take() {
-        io::copy(&mut stdout, &mut remote_stream)
-            .with_context(|| "Failed while streaming data to remote file")?;
-    }
+        let mut file = fs::File::create(&output_path)
+            .with_context(|| format!("Failed to create local file: {}", output_path))?;
 
-    // Handle Tar Process Exit
-    let status = tar_process.wait()?;
-    if !status.success() {
-        eprintln!(
-            "❌ Tar exited with {}. Check if '{}' is installed.",
-            status, compression
-        );
-        anyhow::bail!("Tar process failed");
+        let mut tar_process = cmd.spawn().with_context(|| "Failed to spawn tar process")?;
+
+        if let Some(mut stdout) = tar_process.stdout.take() {
+            io::copy(&mut stdout, &mut file)
+                .with_context(|| "Failed while writing to local file")?;
+        }
+
+        let status = tar_process.wait()?;
+        if !status.success() {
+            eprintln!(
+                "❌ Tar exited with {}. Check if '{}' is installed.",
+                status, compression
+            );
+            anyhow::bail!("Tar process failed");
+        }
+
+        println!("✅ Local backup written successfully.");
     } else {
-        println!("✅ Local compression finished.");
-    }
+        // 3b. Remote path: establish SSH/SFTP, then stream tar into the remote file
+        println!("📡 Destination: {}:{}", config.pi_host, output_path);
 
-    println!("✅ Upload stream closed successfully.");
+        let port = config.pi_port.unwrap_or(22);
+        let tcp = TcpStream::connect(format!("{}:{}", config.pi_host, port))
+            .with_context(|| format!("Failed to connect to {}:{}", config.pi_host, port))?;
+
+        let mut session = Session::new()?;
+        session.set_tcp_stream(tcp);
+        session
+            .handshake()
+            .with_context(|| "Failed SSH handshake")?;
+
+        if let Some(key_path) = &config.pi_private_key_path {
+            let resolved_key_path = resolve_path(key_path);
+            session
+                .userauth_pubkey_file(&config.pi_user, None, Path::new(&resolved_key_path), None)
+                .with_context(|| {
+                    format!(
+                        "Failed to authenticate with private key: {}",
+                        resolved_key_path
+                    )
+                })?;
+        } else if let Some(pass) = &config.pi_password {
+            session
+                .userauth_password(&config.pi_user, pass)
+                .with_context(|| "Failed to authenticate with password")?;
+        } else {
+            anyhow::bail!("No authentication method provided in config.json");
+        }
+
+        if !session.authenticated() {
+            anyhow::bail!("SSH Authentication failed");
+        }
+
+        println!("✅ SSH Connection established. Starting stream...");
+
+        let sftp = session
+            .sftp()
+            .with_context(|| "Failed to initialize SFTP session")?;
+        let mut remote_stream = sftp
+            .create(Path::new(&output_path))
+            .with_context(|| format!("Failed to create remote file at {}", output_path))?;
+
+        let mut tar_process = cmd.spawn().with_context(|| "Failed to spawn tar process")?;
+
+        if let Some(mut stdout) = tar_process.stdout.take() {
+            io::copy(&mut stdout, &mut remote_stream)
+                .with_context(|| "Failed while streaming data to remote file")?;
+        }
+
+        let status = tar_process.wait()?;
+        if !status.success() {
+            eprintln!(
+                "❌ Tar exited with {}. Check if '{}' is installed.",
+                status, compression
+            );
+            anyhow::bail!("Tar process failed");
+        }
+
+        println!("✅ Local compression finished.");
+        println!("✅ Upload stream closed successfully.");
+    }
 
     Ok(())
 }
@@ -257,7 +275,7 @@ fn main() {
     }
 
     // Run the backup and catch bubbling errors
-    if let Err(e) = run_backup(&config) {
+    if let Err(e) = run_backup(&config, cli.local_target) {
         eprintln!("\n💥 Backup failed: {:#}", e);
         std::process::exit(1);
     } else {
