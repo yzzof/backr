@@ -3,11 +3,12 @@
   "pi_port": 22,
   "pi_user": "fozzy",
   "pi_private_key_path": "/home/fozzy/.ssh/id_ed25519",
-  "remote_directory": "/media/fozzy/backups/",
-  "backup_paths": [
+  "target": "/media/fozzy/backups/",
+  "compression": "pixz",
+  "include": [
     "/"
   ],
-  "exclude_paths": [
+  "exclude": [
     "/dev/*",
     "/proc/*",
     "/sys/*",
