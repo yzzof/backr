@@ -11,7 +11,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 // CLI Arguments (override corresponding config.json fields; pi_* fields cannot be overridden)
-// Long flags require "=" between flag and value: e.g. --compression=pixz
+// Flags accept a value with space or "=": -c pixz / --compression=pixz, -t /path / --target=/path
 #[derive(Parser, Debug)]
 #[command(about = "Streaming backup tool using tar + SSH/SFTP", disable_help_flag = true)]
 struct Cli {
@@ -25,19 +25,19 @@ struct Cli {
     local_target: bool,
 
     /// Compression program to use: pixz (xz) or pigz (gzip). Overrides config.json.
-    #[arg(short = 'c', long, require_equals = true)]
+    #[arg(short = 'c', long)]
     compression: Option<String>,
 
     /// Target directory for backup storage. Overrides config.json.
-    #[arg(short = 't', long, require_equals = true)]
+    #[arg(short = 't', long)]
     target: Option<String>,
 
     /// Path to include in backup; may be specified multiple times. Overrides config.json include.
-    #[arg(short = 'i', long, require_equals = true)]
+    #[arg(short = 'i', long)]
     include: Vec<String>,
 
     /// Path to exclude from backup; may be specified multiple times. Overrides config.json exclude.
-    #[arg(short = 'e', long, require_equals = true)]
+    #[arg(short = 'e', long)]
     exclude: Vec<String>,
 }
 
