@@ -19,41 +19,27 @@ A lightweight Rust tool that creates a compressed tar archive of one or more loc
 
 ## Building
 
-Builds are driven by `make`. Each invocation produces a Linux and a Windows (`x86_64-pc-windows-gnu`) executable.
-
-**One-time setup** (Linux host):
-
 ```bash
-# Add the Windows target
-rustup target add x86_64-pc-windows-gnu
-
-# Install cross (Docker-based cross-compiler — handles native deps like libssh2)
-cargo install cross --git https://github.com/cross-rs/cross
+cargo build --release
+# binary will be at ./target/release/backr
 ```
 
-**Build commands:**
-
-```bash
-make release   # optimised binaries (recommended)
-make build     # debug binaries
-
-# Output locations:
-# target/x86_64-unknown-linux-gnu/release/backr
-# target/x86_64-pc-windows-gnu/release/backr.exe
-```
-
-`cross` requires Docker to be running. Linux builds use plain `cargo` and have no extra requirements.
+CI (GitHub Actions) builds for both Linux and Windows automatically on each version tag push.
 
 ## Configuration
 
-Copy and edit `config.json` in the working directory you run the binary from:
+Run `backr` once with no `config.json` present and it will create a `config.example.json` template in the current directory. Copy it to `config.json` and fill in your values:
+
+```bash
+cp config.example.json config.json
+```
 
 ```json
 {
-  "pi_host": "hostname.local",
-  "pi_port": 22,
-  "pi_user": "username",
-  "pi_private_key_path": "~/.ssh/id_ed25519",
+  "ssh_host": "hostname.local",
+  "ssh_port": 22,
+  "ssh_user": "username",
+  "ssh_private_key_path": "~/.ssh/id_ed25519",
   "target": "/media/user/backups/",
   "compression": "pixz",
   "include": [
@@ -74,17 +60,17 @@ Copy and edit `config.json` in the working directory you run the binary from:
 
 | Field | Required | Description |
 |---|---|---|
-| `pi_host` | Yes | SSH hostname or IP of the remote machine |
-| `pi_port` | No | SSH port (default: `22`) |
-| `pi_user` | Yes | SSH username |
-| `pi_private_key_path` | No* | Path to private key file (`~` is expanded) |
-| `pi_password` | No* | SSH password (used if no private key is set) |
+| `ssh_host` | Yes | SSH hostname or IP of the remote machine |
+| `ssh_port` | No | SSH port (default: `22`) |
+| `ssh_user` | Yes | SSH username |
+| `ssh_private_key_path` | No* | Path to private key file (`~` is expanded) |
+| `ssh_password` | No* | SSH password (used if no private key is set) |
 | `target` | Yes | Destination directory for the archive |
 | `compression` | No | `pixz` (default) or `pigz` |
 | `include` | Yes | List of paths to archive |
 | `exclude` | No | List of paths/patterns to exclude from the archive |
 
-\* At least one of `pi_private_key_path` or `pi_password` is required when not using `-l`.
+\* At least one of `ssh_private_key_path` or `ssh_password` is required when not using `-l`.
 
 ## Usage
 
@@ -100,7 +86,7 @@ Options:
   -e, --exclude <PATH>             Path to exclude (repeatable)
 ```
 
-CLI flags override the corresponding `config.json` values. The `pi_*` connection fields can only be set in `config.json`.
+CLI flags override the corresponding `config.json` values. The `ssh_*` connection fields can only be set in `config.json`.
 
 Both long and short flags accept a value with a space or `=`:
 

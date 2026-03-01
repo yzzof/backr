@@ -44,11 +44,11 @@ struct Cli {
 // Load Configuration Struct
 #[derive(Deserialize, Debug)]
 struct Config {
-    pi_host: String,
-    pi_port: Option<u16>,
-    pi_user: String,
-    pi_private_key_path: Option<String>,
-    pi_password: Option<String>,
+    ssh_host: String,
+    ssh_port: Option<u16>,
+    ssh_user: String,
+    ssh_private_key_path: Option<String>,
+    ssh_password: Option<String>,
     target: String,
     compression: Option<String>,
     include: Vec<String>,
@@ -161,11 +161,11 @@ fn run_backup(config: &Config, local_target: bool) -> Result<()> {
         println!("✅ Local backup written successfully.");
     } else {
         // 3b. Remote path: establish SSH/SFTP, then stream tar into the remote file
-        println!("📡 Destination: {}:{}", config.pi_host, output_path);
+        println!("📡 Destination: {}:{}", config.ssh_host, output_path);
 
-        let port = config.pi_port.unwrap_or(22);
-        let tcp = TcpStream::connect(format!("{}:{}", config.pi_host, port))
-            .with_context(|| format!("Failed to connect to {}:{}", config.pi_host, port))?;
+        let port = config.ssh_port.unwrap_or(22);
+        let tcp = TcpStream::connect(format!("{}:{}", config.ssh_host, port))
+            .with_context(|| format!("Failed to connect to {}:{}", config.ssh_host, port))?;
 
         let mut session = Session::new()?;
         session.set_tcp_stream(tcp);
@@ -173,19 +173,19 @@ fn run_backup(config: &Config, local_target: bool) -> Result<()> {
             .handshake()
             .with_context(|| "Failed SSH handshake")?;
 
-        if let Some(key_path) = &config.pi_private_key_path {
+        if let Some(key_path) = &config.ssh_private_key_path {
             let resolved_key_path = resolve_path(key_path);
             session
-                .userauth_pubkey_file(&config.pi_user, None, Path::new(&resolved_key_path), None)
+                .userauth_pubkey_file(&config.ssh_user, None, Path::new(&resolved_key_path), None)
                 .with_context(|| {
                     format!(
                         "Failed to authenticate with private key: {}",
                         resolved_key_path
                     )
                 })?;
-        } else if let Some(pass) = &config.pi_password {
+        } else if let Some(pass) = &config.ssh_password {
             session
-                .userauth_password(&config.pi_user, pass)
+                .userauth_password(&config.ssh_user, pass)
                 .with_context(|| "Failed to authenticate with password")?;
         } else {
             anyhow::bail!("No authentication method provided in config.json");
@@ -244,12 +244,27 @@ fn main() {
     // Determine config path relative to execution directory
     let config_path = env::current_dir().unwrap_or_default().join("config.json");
 
-    let config_content = match fs::read_to_string(&config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("❌ Error loading config.json: {}", e);
-            std::process::exit(1);
+    let config_content = if config_path.exists() {
+        match fs::read_to_string(&config_path) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("❌ Error loading config.json: {}", e);
+                std::process::exit(1);
+            }
         }
+    } else {
+        let example_path = env::current_dir().unwrap_or_default().join("config.example.json");
+        match fs::write(&example_path, include_str!("config.example.json")) {
+            Ok(_) => {
+                eprintln!("❌ config.json not found.");
+                eprintln!("   A template has been written to: {}", example_path.display());
+                eprintln!("   Copy it to config.json, fill in your values, and run backr again.");
+            }
+            Err(e) => {
+                eprintln!("❌ config.json not found and could not write config.example.json: {}", e);
+            }
+        }
+        std::process::exit(1);
     };
 
     let mut config: Config = match serde_json::from_str(&config_content) {
