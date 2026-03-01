@@ -5,7 +5,7 @@ use ssh2::Session;
 use std::cmp::max;
 use std::env;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::net::TcpStream;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -71,6 +71,43 @@ fn resolve_path(p: &str) -> String {
     p.to_string()
 }
 
+// Helper: Check if a program exists on PATH
+fn is_installed(program: &str) -> bool {
+    std::env::var_os("PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
+        .unwrap_or(false)
+}
+
+// Helper: Detect a supported package manager and install a package
+fn try_install(package: &str) -> Result<()> {
+    // (manager binary, install subcommand args, needs sudo)
+    let managers: &[(&str, &[&str], bool)] = &[
+        ("apt-get", &["install", "-y"], true),
+        ("dnf",     &["install", "-y"], true),
+        ("pacman",  &["-S", "--noconfirm"], true),
+        ("brew",    &["install"],        false),
+    ];
+
+    let (manager, args, needs_sudo) = managers
+        .iter()
+        .find(|(bin, _, _)| is_installed(bin))
+        .ok_or_else(|| anyhow::anyhow!(
+            "No supported package manager found (tried apt-get, dnf, pacman, brew)"
+        ))?;
+
+    let status = if *needs_sudo {
+        Command::new("sudo").arg(manager).args(*args).arg(package).status()
+    } else {
+        Command::new(manager).args(*args).arg(package).status()
+    }
+    .with_context(|| format!("Failed to run {} install", manager))?;
+
+    if !status.success() {
+        anyhow::bail!("Installation of '{}' failed", package);
+    }
+    Ok(())
+}
+
 // Helper: Get formatted timestamp matching Node.js ISOString logic
 fn get_timestamp() -> String {
     chrono::Utc::now().format("%Y-%m-%dT%H-%M-%S").to_string()
@@ -84,6 +121,23 @@ fn run_backup(config: &Config, local_target: bool) -> Result<()> {
     let timestamp = get_timestamp();
 
     let compression = config.compression.as_deref().unwrap_or("pixz");
+
+    // Ensure the compression program is available, offering to install it if not
+    if !is_installed(compression) {
+        eprint!("⚠️  '{}' is not installed. Install it now? [y/N] ", compression);
+        io::stderr().flush().ok();
+        let mut response = String::new();
+        io::stdin().read_line(&mut response).with_context(|| "Failed to read input")?;
+        if response.trim().eq_ignore_ascii_case("y") {
+            try_install(compression)?;
+            if !is_installed(compression) {
+                anyhow::bail!("'{}' still not found after installation", compression);
+            }
+            eprintln!("✅ '{}' installed successfully.", compression);
+        } else {
+            anyhow::bail!("'{}' is required but not installed", compression);
+        }
+    }
 
     // Choose archive extension based on compression program
     let ext = match compression {
