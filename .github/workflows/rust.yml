@@ -30,10 +30,10 @@ jobs:
         include:
           - os: ubuntu-latest
             artifact_name: backr
-            asset_name: backr-x86_64-unknown-linux-gnu
+            asset_name: backr
           - os: windows-latest
             artifact_name: backr.exe
-            asset_name: backr-x86_64-pc-windows-msvc.exe
+            asset_name: backr.exe
 
     runs-on: ${{ matrix.os }}
     steps:
