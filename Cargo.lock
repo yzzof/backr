@@ -74,6 +74,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "backr"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "dirs",
+ "hostname",
+ "num_cpus",
+ "serde",
+ "serde_json",
+ "ssh2",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -529,21 +544,6 @@ dependencies = [
  "libc",
  "libssh2-sys",
  "parking_lot",
-]
-
-[[package]]
-name = "stream-backup"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "clap",
- "dirs",
- "hostname",
- "num_cpus",
- "serde",
- "serde_json",
- "ssh2",
 ]
 
 [[package]]
