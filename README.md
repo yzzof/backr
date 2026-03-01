@@ -19,10 +19,30 @@ A lightweight Rust tool that creates a compressed tar archive of one or more loc
 
 ## Building
 
+Builds are driven by `make`. Each invocation produces a Linux and a Windows (`x86_64-pc-windows-gnu`) executable.
+
+**One-time setup** (Linux host):
+
 ```bash
-cargo build --release
-# binary will be at ./target/release/backr
+# Add the Windows target
+rustup target add x86_64-pc-windows-gnu
+
+# Install cross (Docker-based cross-compiler — handles native deps like libssh2)
+cargo install cross --git https://github.com/cross-rs/cross
 ```
+
+**Build commands:**
+
+```bash
+make release   # optimised binaries (recommended)
+make build     # debug binaries
+
+# Output locations:
+# target/x86_64-unknown-linux-gnu/release/backr
+# target/x86_64-pc-windows-gnu/release/backr.exe
+```
+
+`cross` requires Docker to be running. Linux builds use plain `cargo` and have no extra requirements.
 
 ## Configuration
 
