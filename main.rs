@@ -71,10 +71,11 @@ fn resolve_path(p: &str) -> String {
     p.to_string()
 }
 
-// Helper: Check if a program exists on PATH
+// Helper: Check if a program exists on PATH (handles .exe suffix on Windows)
 fn is_installed(program: &str) -> bool {
+    let exe = format!("{}{}", program, std::env::consts::EXE_SUFFIX);
     std::env::var_os("PATH")
-        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(program).is_file()))
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir.join(&exe).is_file()))
         .unwrap_or(false)
 }
 
