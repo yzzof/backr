@@ -1,10 +1,10 @@
 [package]
-name = "stream-backup"
+name = "backr"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "stream-backup"
+name = "backr"
 path = "main.rs"
 
 [dependencies]

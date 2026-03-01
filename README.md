@@ -1,4 +1,4 @@
-# stream-backup
+# backr
 
 A lightweight Rust tool that creates a compressed tar archive of one or more local paths and streams it directly to a remote host over SFTP — or writes it to a local directory — without buffering to a temporary file.
 
@@ -21,7 +21,7 @@ A lightweight Rust tool that creates a compressed tar archive of one or more loc
 
 ```bash
 cargo build --release
-# binary will be at ./target/release/stream-backup
+# binary will be at ./target/release/backr
 ```
 
 ## Configuration
@@ -69,60 +69,66 @@ Copy and edit `config.json` in the working directory you run the binary from:
 ## Usage
 
 ```
-stream-backup [OPTIONS]
+backr [OPTIONS]
 
 Options:
   -h, --help                       Print help
   -l, --local-target               Write backup to a local path instead of uploading via SSH/SFTP
-  -c, --compression=<PROGRAM>      Compression program: pixz or pigz
-  -t, --target=<DIR>               Destination directory
-  -i, --include=<PATH>             Path to include (repeatable)
-  -e, --exclude=<PATH>             Path to exclude (repeatable)
+  -c, --compression <PROGRAM>      Compression program: pixz or pigz
+  -t, --target <DIR>               Destination directory
+  -i, --include <PATH>             Path to include (repeatable)
+  -e, --exclude <PATH>             Path to exclude (repeatable)
 ```
 
 CLI flags override the corresponding `config.json` values. The `pi_*` connection fields can only be set in `config.json`.
 
-**Long flags require `=`** between the flag and its value:
+Both long and short flags accept a value with a space or `=`:
 
 ```bash
-# Correct
-stream-backup --compression=pigz --target=/mnt/backups
-
-# Wrong — will print help and exit
-stream-backup --compression pigz
+backr --compression pigz --target /mnt/backups
+backr --compression=pigz --target=/mnt/backups
+backr -c pigz -t /mnt/backups
 ```
 
-Short flags use space-separated values and can be combined:
+Short flags can be combined. Since `-l` takes no value it can be prepended to any other short flag:
 
 ```bash
-# These are all equivalent
-stream-backup -c pigz -t /mnt/backups
-stream-backup -c pigz -t=/mnt/backups
+# -l combined with -c
+backr -lc pigz
 
-# -l takes no value so it can be merged with -c
-stream-backup -lc pigz
+# -l combined with -t (space-separated value)
+backr -lt /mnt/backups
+
+# -l combined with -t (= value)
+backr -lt=/mnt/backups
+
+# -l combined with multiple flags
+backr -lc pigz -t /mnt/backups
 ```
 
 ## Examples
 
 ```bash
 # Normal remote backup using config.json defaults
-stream-backup
+backr
 
 # Use pigz instead of pixz
-stream-backup --compression=pigz
+backr --compression=pigz
 
 # Write locally instead of uploading, override target directory
-stream-backup -l --target=/mnt/external/backups
+backr -l --target=/mnt/external/backups
 
 # Same thing with combined short flags
-stream-backup -lt=/mnt/external/backups
+backr -lt /mnt/external/backups
 
 # Back up only /home, exclude caches, write locally
-stream-backup -l -i /home -e /home/*/.cache
+backr -l -i /home -e /home/*/.cache
+
+# Back up only /home locally, combining -l with -i
+backr -li /home -e /home/*/.cache
 
 # Override everything from the command line
-stream-backup --compression=pigz --target=/backups --include=/ --exclude=/proc/* --exclude=/sys/*
+backr --compression=pigz --target=/backups --include=/ --exclude=/proc/* --exclude=/sys/*
 ```
 
 ## Output
