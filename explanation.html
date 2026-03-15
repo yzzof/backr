@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rust Backup Tool Explained (with TypeScript/Node.js Parallels)</title>
+  <style>
+    :root {
+      --bg: #1a1b26;
+      --surface: #24283b;
+      --border: #414868;
+      --text: #c0caf5;
+      --text-muted: #565f89;
+      --heading: #7aa2f7;
+      --accent: #bb9af7;
+      --green: #9ece6a;
+      --orange: #e0af68;
+      --red: #f7768e;
+      --cyan: #7dcfff;
+      --code-bg: #1e2030;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: var(--heading);
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.75rem;
+    }
+
+    h1 .subtitle {
+      display: block;
+      font-size: 1rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 0.25rem;
+    }
+
+    h2 {
+      color: var(--accent);
+      font-size: 1.4rem;
+      margin-top: 2.5rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    h3 {
+      color: var(--cyan);
+      font-size: 1.1rem;
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    p {
+      margin-bottom: 0.75rem;
+    }
+
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      overflow-x: auto;
+      margin: 0.75rem 0;
+      font-size: 0.875rem;
+      line-height: 1.5;
+    }
+
+    code {
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: 0.875em;
+    }
+
+    p code, li code, td code {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.1em 0.35em;
+      color: var(--orange);
+    }
+
+    .label {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.15em 0.5em;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+    }
+
+    .label-rust {
+      background: rgba(231, 111, 81, 0.15);
+      color: var(--red);
+      border: 1px solid rgba(231, 111, 81, 0.3);
+    }
+
+    .label-ts {
+      background: rgba(122, 162, 247, 0.15);
+      color: var(--heading);
+      border: 1px solid rgba(122, 162, 247, 0.3);
+    }
+
+    .equiv {
+      background: rgba(158, 206, 106, 0.08);
+      border-left: 3px solid var(--green);
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .equiv::before {
+      content: "TypeScript Equivalent:";
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--green);
+      margin-bottom: 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .note {
+      background: rgba(187, 154, 247, 0.08);
+      border-left: 3px solid var(--accent);
+      padding: 0.75rem 1rem;
+      margin: 0.75rem 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 0.9rem;
+    }
+
+    ul, ol {
+      margin: 0.5rem 0 0.75rem 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.35rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    thead th {
+      background: var(--code-bg);
+      color: var(--heading);
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+
+    tbody td {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+    }
+
+    tbody tr:nth-child(even) {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 2rem 0;
+    }
+
+    .summary-list {
+      list-style: none;
+      margin-left: 0;
+      padding: 0;
+    }
+
+    .summary-list li {
+      padding: 0.4rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .summary-list li::before {
+      position: absolute;
+      left: 0;
+      width: 1.2rem;
+    }
+
+    .summary-list li:nth-child(1)::before { content: "1."; color: var(--cyan); }
+    .summary-list li:nth-child(2)::before { content: "2."; color: var(--cyan); }
+    .summary-list li:nth-child(3)::before { content: "3."; color: var(--cyan); }
+    .summary-list li:nth-child(4)::before { content: "4."; color: var(--cyan); }
+    .summary-list li:nth-child(5)::before { content: "5."; color: var(--cyan); }
+    .summary-list li:nth-child(6)::before { content: "6."; color: var(--cyan); }
+
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    .toc h3 {
+      margin-top: 0;
+      color: var(--accent);
+    }
+
+    .toc ul {
+      list-style: none;
+      margin: 0.5rem 0 0 0;
+      padding: 0;
+    }
+
+    .toc li {
+      margin: 0.3rem 0;
+    }
+
+    .toc a {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .toc a:hover {
+      color: var(--heading);
+      text-decoration: underline;
+    }
+
+    .keyword { color: var(--red); }
+    .string { color: var(--green); }
+    .type { color: var(--cyan); }
+    .func { color: var(--heading); }
+    .comment { color: var(--text-muted); font-style: italic; }
+    .macro { color: var(--orange); }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>
+    Rust Backup Tool Explained
+    <span class="subtitle">Line-by-line explanation with TypeScript / Node.js parallels</span>
+  </h1>
+
+  <p>This is a <strong>streaming backup utility</strong> that archives files using <code>tar</code> with multi-threaded compression, then either saves locally or uploads via SSH/SFTP.</p>
+
+  <nav class="toc">
+    <h3>Table of Contents</h3>
+    <ul>
+      <li><a href="#imports">Imports (Lines 1&ndash;11)</a></li>
+      <li><a href="#attributes">Deep Dive: How Attributes Work</a></li>
+      <li><a href="#cli">CLI Arguments Struct (Lines 15&ndash;42)</a></li>
+      <li><a href="#config">Config Struct (Lines 45&ndash;56)</a></li>
+      <li><a href="#resolve-path">Helper: resolve_path() (Lines 59&ndash;72)</a></li>
+      <li><a href="#is-installed">Helper: is_installed() (Lines 75&ndash;80)</a></li>
+      <li><a href="#try-install">Helper: try_install() (Lines 83&ndash;110)</a></li>
+      <li><a href="#timestamp">Helper: get_timestamp() (Lines 113&ndash;115)</a></li>
+      <li><a href="#run-backup">Main Backup Logic: run_backup() (Lines 118&ndash;283)</a></li>
+      <li><a href="#main">Main Function (Lines 285&ndash;354)</a></li>
+      <li><a href="#reference">Quick Reference Table</a></li>
+      <li><a href="#summary">Summary</a></li>
+    </ul>
+  </nav>
+
+  <!-- ========== IMPORTS ========== -->
+  <div class="section" id="imports">
+    <h2>Imports (Lines 1&ndash;11)</h2>
+
+    <pre><code><span class="keyword">use</span> anyhow::{Context, Result};
+<span class="keyword">use</span> clap::{CommandFactory, Parser};
+<span class="keyword">use</span> serde::Deserialize;
+<span class="keyword">use</span> ssh2::Session;
+<span class="keyword">use</span> std::cmp::max;
+<span class="keyword">use</span> std::env;
+<span class="keyword">use</span> std::fs;
+<span class="keyword">use</span> std::io::{<span class="keyword">self</span>, Write};
+<span class="keyword">use</span> std::net::TcpStream;
+<span class="keyword">use</span> std::path::Path;
+<span class="keyword">use</span> std::process::{Command, Stdio};</code></pre>
+
+    <p>Rust's <code>use</code> statement is equivalent to TypeScript's <code>import</code>. It brings items from <strong>crates</strong> (Rust's term for packages/libraries) into scope.</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">import</span> { Context, Result } <span class="keyword">from</span> <span class="string">'anyhow'</span>;
+<span class="comment">// or in CommonJS:</span>
+<span class="keyword">const</span> { Context, Result } = <span class="func">require</span>(<span class="string">'anyhow'</span>);</code></pre>
+    </div>
+
+    <h3>What each crate does:</h3>
+    <ul>
+      <li><code>anyhow</code> &mdash; Error handling utilities (like wrapping errors with context)</li>
+      <li><code>clap</code> &mdash; CLI argument parsing (like <code>yargs</code> or <code>commander.js</code>)</li>
+      <li><code>serde</code> &mdash; Serialization / deserialization (like <code>JSON.parse()</code> / <code>JSON.stringify()</code>)</li>
+      <li><code>ssh2</code> &mdash; SSH/SFTP client (like the <code>ssh2</code> npm package)</li>
+      <li><code>std::path::Path</code> &mdash; File path handling (like Node.js <code>path</code> module)</li>
+      <li><code>std::fs</code> &mdash; File system operations (like Node.js <code>fs</code> module)</li>
+      <li><code>std::io</code> &mdash; Input/output (like Node.js <code>stream</code> module)</li>
+      <li><code>std::process::Command</code> &mdash; Spawn system commands (like Node.js <code>child_process.spawn()</code>)</li>
+    </ul>
+  </div>
+
+  <!-- ========== ATTRIBUTES ========== -->
+  <div class="section" id="attributes">
+    <h2>Deep Dive: How Attributes Work</h2>
+
+    <p>Attributes are the <code>#[...]</code> annotations you see throughout the code. They're one of Rust's most distinctive features, and while they <em>look</em> like TypeScript decorators (<code>@Something</code>), they work quite differently under the hood.</p>
+
+    <h3>What are attributes?</h3>
+
+    <p>Attributes are <strong>instructions to the compiler</strong>. They don't run at runtime like TypeScript decorators &mdash; they run at <strong>compile time</strong> and generate or modify code before your program ever executes.</p>
+
+    <pre><code><span class="comment">// TypeScript decorator: runs at runtime, modifies the class after it exists</span>
+@Controller(<span class="string">'/api'</span>)
+<span class="keyword">class</span> <span class="type">MyController</span> { }
+
+<span class="comment">// Rust attribute: runs at compile time, generates code that gets compiled in</span>
+#[<span class="func">derive</span>(Parser, Debug)]
+<span class="keyword">struct</span> <span class="type">Cli</span> { }</code></pre>
+
+    <h3>The two kinds of attributes</h3>
+
+    <p><strong>Outer attributes</strong> (<code>#[...]</code>) apply to the item that follows them:</p>
+    <pre><code>#[<span class="func">derive</span>(Debug)]      <span class="comment">// &larr; applies to the struct below</span>
+<span class="keyword">struct</span> <span class="type">Config</span> { ... }</code></pre>
+
+    <p><strong>Inner attributes</strong> (<code>#![...]</code>) apply to the enclosing item (you'd see these at the top of a file to configure the whole module). This program doesn't use any, but they look like:</p>
+    <pre><code>#![<span class="func">allow</span>(unused_variables)]  <span class="comment">// &larr; applies to this entire file</span></code></pre>
+
+    <h3>1. <code>#[derive(...)]</code> &mdash; Auto-generate implementations</h3>
+
+    <p>This is the most common attribute. It tells the compiler to <strong>automatically generate code</strong> that implements a "trait" (Rust's version of an interface) for your struct.</p>
+
+    <pre><code>#[<span class="func">derive</span>(Deserialize, Debug)]
+<span class="keyword">struct</span> <span class="type">Config</span> {
+    ssh_host: <span class="type">String</span>,
+    ssh_port: <span class="type">Option</span>&lt;<span class="type">u16</span>&gt;,
+    <span class="comment">// ...</span>
+}</code></pre>
+
+    <p>What does this actually do? At compile time, the Rust compiler sees <code>derive(Deserialize)</code> and <strong>writes code for you</strong>. It's as if you had written hundreds of lines of parsing logic by hand. Here's what each derived trait does in this program:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Derive</th>
+          <th>What it generates</th>
+          <th>TypeScript analogy</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>Debug</code></td>
+          <td>A <code>.fmt()</code> method so you can print the struct with <code>{:?}</code> for debugging</td>
+          <td>Like auto-generating a <code>toString()</code> that shows all fields: <code>Config { ssh_host: "...", ... }</code></td>
+        </tr>
+        <tr>
+          <td><code>Deserialize</code></td>
+          <td>A full JSON/YAML/TOML parser for this exact struct shape</td>
+          <td>Like auto-generating <code>JSON.parse()</code> but with <strong>type validation</strong> &mdash; if a field is missing or the wrong type, it returns an error instead of silently producing <code>undefined</code></td>
+        </tr>
+        <tr>
+          <td><code>Parser</code></td>
+          <td>A complete CLI argument parser, including help text, flag names, and validation</td>
+          <td>Like auto-configuring <code>commander.js</code> or <code>yargs</code> from just a type definition</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Key insight:</strong> In TypeScript, you'd write the interface <em>and</em> the parsing logic separately:
+      <pre><code><span class="comment">// TypeScript: define shape AND write parser separately</span>
+<span class="keyword">interface</span> <span class="type">Config</span> { ssh_host: <span class="type">string</span>; ssh_port?: <span class="type">number</span>; }
+<span class="keyword">const</span> config: <span class="type">Config</span> = JSON.parse(text); <span class="comment">// no validation!</span></code></pre>
+
+      In Rust, <code>#[derive(Deserialize)]</code> generates the parser <em>from</em> the struct definition. The shape <strong>is</strong> the parser. They can never get out of sync.
+    </div>
+
+    <h3>2. <code>#[command(...)]</code> &mdash; Configure the CLI parser</h3>
+
+    <pre><code>#[<span class="func">command</span>(about = <span class="string">"Streaming backup tool using tar + SSH/SFTP"</span>, disable_help_flag = <span class="keyword">true</span>)]
+<span class="keyword">struct</span> <span class="type">Cli</span> { ... }</code></pre>
+
+    <p>This is a <strong>helper attribute</strong> provided by the <code>clap</code> crate. It configures the overall CLI command. Think of it as passing options to the <code>commander</code> constructor:</p>
+
+    <div class="equiv">
+      <pre><code><span class="comment">// TypeScript with commander.js</span>
+<span class="keyword">const</span> program = <span class="keyword">new</span> Command()
+  .description(<span class="string">'Streaming backup tool using tar + SSH/SFTP'</span>)
+  .helpOption(<span class="keyword">false</span>); <span class="comment">// disable_help_flag = true</span></code></pre>
+    </div>
+
+    <h3>3. <code>#[arg(...)]</code> &mdash; Configure individual CLI flags</h3>
+
+    <pre><code><span class="comment">/// Compression program to use: pixz (xz) or pigz (gzip).</span>
+#[<span class="func">arg</span>(short = <span class="string">'c'</span>, long)]
+compression: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,</code></pre>
+
+    <p>Each <code>#[arg(...)]</code> configures one CLI flag. Here's what each option means:</p>
+
+    <ul>
+      <li><code>short = 'c'</code> &mdash; allows <code>-c pixz</code> (single-dash, single letter)</li>
+      <li><code>long</code> &mdash; allows <code>--compression pixz</code> (auto-generated from the field name)</li>
+      <li><code>short_aliases = ['?']</code> &mdash; alternative short flags (<code>-?</code> also triggers help)</li>
+      <li><code>action = clap::ArgAction::Help</code> &mdash; instead of storing a value, this flag triggers the help display</li>
+    </ul>
+
+    <p>The <code>///</code> doc comments above each field become the help text shown when you run <code>--help</code>.</p>
+
+    <div class="equiv">
+      <pre><code><span class="comment">// TypeScript with commander.js</span>
+program
+  .option(<span class="string">'-c, --compression &lt;program&gt;'</span>,
+    <span class="string">'Compression program to use: pixz (xz) or pigz (gzip).'</span>)
+  .option(<span class="string">'-l, --local-target'</span>,
+    <span class="string">'Write backup to a local path instead of uploading via SSH/SFTP.'</span>)
+  .option(<span class="string">'-i, --include &lt;path...&gt;'</span>,
+    <span class="string">'Path to include in backup; may be specified multiple times.'</span>);</code></pre>
+    </div>
+
+    <h3>4. How <code>#[derive(Parser)]</code> uses <code>#[arg(...)]</code></h3>
+
+    <p>Here's the clever part: <code>#[derive(Parser)]</code> and <code>#[arg(...)]</code> work <strong>together</strong>. At compile time:</p>
+
+    <ol>
+      <li>The <code>Parser</code> derive macro scans the struct</li>
+      <li>For each field, it reads the <code>#[arg(...)]</code> attribute to learn the flag name, short alias, etc.</li>
+      <li>It looks at the <strong>field type</strong> to determine behavior:
+        <ul>
+          <li><code>bool</code> &rarr; flag (present or not, no value needed)</li>
+          <li><code>Option&lt;String&gt;</code> &rarr; optional flag that takes a value</li>
+          <li><code>Vec&lt;String&gt;</code> &rarr; flag that can be repeated multiple times</li>
+          <li><code>String</code> &rarr; required argument</li>
+        </ul>
+      </li>
+      <li>It reads <code>///</code> doc comments and uses them as help text</li>
+      <li>It generates a complete parser: argument validation, error messages, <code>--help</code> output, and all</li>
+    </ol>
+
+    <p>So this single annotated struct:</p>
+
+    <pre><code>#[<span class="func">derive</span>(Parser)]
+<span class="keyword">struct</span> <span class="type">Cli</span> {
+    <span class="comment">/// Write backup to a local path</span>
+    #[<span class="func">arg</span>(short = <span class="string">'l'</span>, long)]
+    local_target: <span class="type">bool</span>,
+}</code></pre>
+
+    <p>...generates code equivalent to roughly this TypeScript:</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">import</span> { Command } <span class="keyword">from</span> <span class="string">'commander'</span>;
+
+<span class="keyword">interface</span> <span class="type">Cli</span> {
+  localTarget: <span class="type">boolean</span>;
+}
+
+<span class="keyword">function</span> <span class="func">parseCli</span>(): <span class="type">Cli</span> {
+  <span class="keyword">const</span> program = <span class="keyword">new</span> Command();
+  program.option(<span class="string">'-l, --local-target'</span>, <span class="string">'Write backup to a local path'</span>);
+  program.parse(process.argv);
+  <span class="keyword">const</span> opts = program.opts();
+  <span class="keyword">return</span> { localTarget: opts.localTarget ?? <span class="keyword">false</span> };
+}
+
+<span class="comment">// All of this is generated for you. You just write the struct.</span></code></pre>
+    </div>
+
+    <h3>5. <code>#[derive(Deserialize)]</code> &mdash; the same pattern for JSON</h3>
+
+    <p>The exact same idea applies to config loading. This struct:</p>
+
+    <pre><code>#[<span class="func">derive</span>(Deserialize)]
+<span class="keyword">struct</span> <span class="type">Config</span> {
+    ssh_host: <span class="type">String</span>,
+    ssh_port: <span class="type">Option</span>&lt;<span class="type">u16</span>&gt;,
+}</code></pre>
+
+    <p>...auto-generates code that works like this TypeScript:</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">function</span> <span class="func">parseConfig</span>(json: <span class="type">string</span>): <span class="type">Config</span> {
+  <span class="keyword">const</span> raw = JSON.parse(json);
+
+  <span class="comment">// Type-check every field (generated automatically)</span>
+  <span class="keyword">if</span> (<span class="keyword">typeof</span> raw.ssh_host !== <span class="string">'string'</span>)
+    <span class="keyword">throw new</span> Error(<span class="string">'missing field: ssh_host'</span>);
+
+  <span class="keyword">if</span> (raw.ssh_port !== <span class="keyword">undefined</span> &amp;&amp; <span class="keyword">typeof</span> raw.ssh_port !== <span class="string">'number'</span>)
+    <span class="keyword">throw new</span> Error(<span class="string">'ssh_port must be a number'</span>);
+
+  <span class="keyword">if</span> (raw.ssh_port !== <span class="keyword">undefined</span> &amp;&amp; (raw.ssh_port &lt; 0 || raw.ssh_port &gt; 65535))
+    <span class="keyword">throw new</span> Error(<span class="string">'ssh_port out of u16 range'</span>);
+
+  <span class="comment">// ... validation for every other field ...</span>
+
+  <span class="keyword">return</span> raw <span class="keyword">as</span> <span class="type">Config</span>;
+}
+
+<span class="comment">// In Rust, all of this validation code is generated at compile time
+// from just #[derive(Deserialize)] — zero boilerplate.</span></code></pre>
+    </div>
+
+    <h3>Attributes vs TypeScript Decorators &mdash; Key Differences</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Aspect</th>
+          <th>Rust Attributes</th>
+          <th>TypeScript Decorators</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>When they run</strong></td>
+          <td>Compile time (before the program exists)</td>
+          <td>Runtime (after classes are created)</td>
+        </tr>
+        <tr>
+          <td><strong>What they can do</strong></td>
+          <td>Generate new code, add methods, create entire implementations</td>
+          <td>Wrap or modify existing class methods/properties</td>
+        </tr>
+        <tr>
+          <td><strong>Performance cost</strong></td>
+          <td>Zero &mdash; generated code is compiled like hand-written code</td>
+          <td>Small runtime overhead from wrapper functions</td>
+        </tr>
+        <tr>
+          <td><strong>Can add fields/methods?</strong></td>
+          <td>Yes &mdash; <code>derive(Parser)</code> adds a <code>parse()</code> method to the struct</td>
+          <td>Can wrap methods but not easily add new typed ones</td>
+        </tr>
+        <tr>
+          <td><strong>Type safety</strong></td>
+          <td>Generated code is fully type-checked</td>
+          <td>Decorators can break type inference</td>
+        </tr>
+        <tr>
+          <td><strong>Syntax</strong></td>
+          <td><code>#[name(...)]</code></td>
+          <td><code>@name(...)</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>Think of it this way:</strong> TypeScript decorators are like wrapping a gift after it's been made. Rust attributes are like giving the factory new blueprints so it builds the gift differently in the first place. The result looks the same from the outside, but Rust's approach catches errors earlier and adds zero runtime cost.
+    </div>
+
+    <h3>Summary of every attribute in this program</h3>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Attribute</th>
+          <th>Applied to</th>
+          <th>What it does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>#[derive(Parser, Debug)]</code></td>
+          <td><code>struct Cli</code></td>
+          <td>Auto-generates CLI parsing and debug printing</td>
+        </tr>
+        <tr>
+          <td><code>#[command(about = "...", ...)]</code></td>
+          <td><code>struct Cli</code></td>
+          <td>Sets the program description and disables the default help flag</td>
+        </tr>
+        <tr>
+          <td><code>#[arg(short, long, ...)]</code></td>
+          <td>Each field in <code>Cli</code></td>
+          <td>Configures the flag name, aliases, and behavior for that argument</td>
+        </tr>
+        <tr>
+          <td><code>#[derive(Deserialize, Debug)]</code></td>
+          <td><code>struct Config</code></td>
+          <td>Auto-generates JSON deserialization and debug printing</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========== CLI ========== -->
+  <div class="section" id="cli">
+    <h2>CLI Arguments Struct (Lines 15&ndash;42)</h2>
+
+    <pre><code><span class="comment">// CLI Arguments (override corresponding config.json fields)</span>
+#[<span class="func">derive</span>(Parser, Debug)]
+#[<span class="func">command</span>(about = <span class="string">"Streaming backup tool using tar + SSH/SFTP"</span>, disable_help_flag = <span class="keyword">true</span>)]
+<span class="keyword">struct</span> <span class="type">Cli</span> {
+    <span class="comment">/// Print help</span>
+    #[<span class="func">arg</span>(short = <span class="string">'h'</span>, short_aliases = [<span class="string">'?'</span>], long = <span class="string">"help"</span>, action = clap::ArgAction::Help)]
+    help: <span class="type">Option</span>&lt;<span class="type">bool</span>&gt;,
+
+    <span class="comment">/// Write backup to a local path instead of uploading via SSH/SFTP.</span>
+    #[<span class="func">arg</span>(short = <span class="string">'l'</span>, long)]
+    local_target: <span class="type">bool</span>,
+
+    <span class="comment">/// Compression program to use: pixz (xz) or pigz (gzip).</span>
+    #[<span class="func">arg</span>(short = <span class="string">'c'</span>, long)]
+    compression: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,
+
+    <span class="comment">/// Target directory for backup storage.</span>
+    #[<span class="func">arg</span>(short = <span class="string">'t'</span>, long)]
+    target: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,
+
+    <span class="comment">/// Path to include in backup; may be specified multiple times.</span>
+    #[<span class="func">arg</span>(short = <span class="string">'i'</span>, long)]
+    include: <span class="type">Vec</span>&lt;<span class="type">String</span>&gt;,
+
+    <span class="comment">/// Path to exclude from backup; may be specified multiple times.</span>
+    #[<span class="func">arg</span>(short = <span class="string">'e'</span>, long)]
+    exclude: <span class="type">Vec</span>&lt;<span class="type">String</span>&gt;,
+}</code></pre>
+
+    <h3>Key concepts:</h3>
+
+    <ul>
+      <li><strong>Attributes</strong> (<code>#[...]</code>) are metadata annotations, like <strong>TypeScript decorators</strong>.</li>
+      <li><code>#[derive(Parser, Debug)]</code> auto-generates code to parse CLI arguments and make the struct printable for debugging.</li>
+      <li><code>struct</code> defines a data structure (like a TypeScript <code>interface</code> or <code>type</code>).</li>
+      <li><code>Option&lt;bool&gt;</code> means the value can be <code>Some(true)</code> or <code>None</code> &mdash; like <code>boolean | undefined</code> in TypeScript.</li>
+      <li><code>Vec&lt;String&gt;</code> is a dynamic array of strings &mdash; like <code>string[]</code> in TypeScript.</li>
+    </ul>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">interface</span> <span class="type">Cli</span> {
+  help?: <span class="type">boolean</span>;
+  local_target: <span class="type">boolean</span>;
+  compression?: <span class="type">string</span>;
+  target?: <span class="type">string</span>;
+  include: <span class="type">string</span>[];
+  exclude: <span class="type">string</span>[];
+}</code></pre>
+    </div>
+
+    <div class="note">
+      <strong>Note:</strong> In Rust, <code>Option&lt;T&gt;</code> forces you to explicitly handle the "missing" case before using the value. TypeScript's <code>?</code> optional fields can be silently <code>undefined</code>, which can cause runtime errors. Rust prevents this at compile time.
+    </div>
+  </div>
+
+  <!-- ========== CONFIG ========== -->
+  <div class="section" id="config">
+    <h2>Config Struct (Lines 45&ndash;56)</h2>
+
+    <pre><code>#[<span class="func">derive</span>(Deserialize, Debug)]
+<span class="keyword">struct</span> <span class="type">Config</span> {
+    ssh_host: <span class="type">String</span>,
+    ssh_port: <span class="type">Option</span>&lt;<span class="type">u16</span>&gt;,
+    ssh_user: <span class="type">String</span>,
+    ssh_private_key_path: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,
+    ssh_password: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,
+    target: <span class="type">String</span>,
+    compression: <span class="type">Option</span>&lt;<span class="type">String</span>&gt;,
+    include: <span class="type">Vec</span>&lt;<span class="type">String</span>&gt;,
+    exclude: <span class="type">Vec</span>&lt;<span class="type">String</span>&gt;,
+}</code></pre>
+
+    <p>This struct is loaded from <code>config.json</code>. The <code>#[derive(Deserialize)]</code> attribute auto-generates JSON parsing code via <code>serde</code>.</p>
+    <p><code>u16</code> is an unsigned 16-bit integer (0&ndash;65535), perfect for port numbers. TypeScript just uses <code>number</code> for everything.</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">interface</span> <span class="type">Config</span> {
+  ssh_host: <span class="type">string</span>;
+  ssh_port?: <span class="type">number</span>;    <span class="comment">// 0-65535</span>
+  ssh_user: <span class="type">string</span>;
+  ssh_private_key_path?: <span class="type">string</span>;
+  ssh_password?: <span class="type">string</span>;
+  target: <span class="type">string</span>;
+  compression?: <span class="type">string</span>;
+  include: <span class="type">string</span>[];
+  exclude: <span class="type">string</span>[];
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ========== RESOLVE PATH ========== -->
+  <div class="section" id="resolve-path">
+    <h2>Helper: <code>resolve_path()</code> (Lines 59&ndash;72)</h2>
+
+    <pre><code><span class="keyword">fn</span> <span class="func">resolve_path</span>(p: &amp;<span class="type">str</span>) -&gt; <span class="type">String</span> {
+    <span class="keyword">if</span> p.starts_with(<span class="string">'~'</span>) {
+        <span class="keyword">if let</span> <span class="type">Some</span>(<span class="keyword">mut</span> home) = dirs::home_dir() {
+            <span class="keyword">let</span> without_tilde = p
+                .strip_prefix(<span class="string">"~/"</span>)
+                .unwrap_or_else(|| p.strip_prefix(<span class="string">'~'</span>).unwrap_or(p));
+            <span class="keyword">if</span> !without_tilde.is_empty() {
+                home.push(without_tilde);
+            }
+            <span class="keyword">return</span> home.to_string_lossy().to_string();
+        }
+    }
+    p.to_string()
+}</code></pre>
+
+    <h3>Line-by-line breakdown:</h3>
+
+    <ul>
+      <li><code>fn</code> &mdash; function declaration keyword.</li>
+      <li><code>&amp;str</code> &mdash; a <strong>reference to a string slice</strong> (borrowed, read-only). In TypeScript this is just <code>string</code>. The <code>&amp;</code> means "I'm borrowing this data, not taking ownership of it."</li>
+      <li><code>-&gt; String</code> &mdash; return type. <code>String</code> is heap-allocated and owned. In TypeScript, also just <code>string</code>.</li>
+      <li><code>if let Some(mut home) = ...</code> &mdash; <strong>pattern matching</strong>. If <code>dirs::home_dir()</code> returns <code>Some(value)</code>, bind it to <code>home</code> and run the block. <code>mut</code> means <code>home</code> is mutable.</li>
+      <li><code>.unwrap_or_else(|| ...)</code> &mdash; if <code>None</code>, execute the closure (anonymous function) and use that value instead. The <code>|| ...</code> syntax is Rust's closure, equivalent to TypeScript's arrow function <code>() =&gt; ...</code>.</li>
+      <li><code>.to_string_lossy()</code> &mdash; converts a system path to a string (may replace invalid Unicode chars).</li>
+    </ul>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">function</span> <span class="func">resolvePath</span>(p: <span class="type">string</span>): <span class="type">string</span> {
+  <span class="keyword">if</span> (p.startsWith(<span class="string">'~'</span>)) {
+    <span class="keyword">const</span> home = os.homedir();
+    <span class="keyword">if</span> (home) {
+      <span class="keyword">const</span> withoutTilde = p.startsWith(<span class="string">'~/'</span>)
+        ? p.slice(2)
+        : p.slice(1);
+      <span class="keyword">return</span> withoutTilde
+        ? path.join(home, withoutTilde)
+        : home;
+    }
+  }
+  <span class="keyword">return</span> p;
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ========== IS_INSTALLED ========== -->
+  <div class="section" id="is-installed">
+    <h2>Helper: <code>is_installed()</code> (Lines 75&ndash;80)</h2>
+
+    <pre><code><span class="keyword">fn</span> <span class="func">is_installed</span>(program: &amp;<span class="type">str</span>) -&gt; <span class="type">bool</span> {
+    <span class="keyword">let</span> exe = <span class="macro">format!</span>(<span class="string">"{}{}"</span>, program, std::env::consts::EXE_SUFFIX);
+    std::env::var_os(<span class="string">"PATH"</span>)
+        .map(|paths| std::env::split_paths(&amp;paths).any(|dir| dir.join(&amp;exe).is_file()))
+        .unwrap_or(<span class="keyword">false</span>)
+}</code></pre>
+
+    <h3>Breaking it down:</h3>
+    <ul>
+      <li><code>format!(...)</code> &mdash; string interpolation macro. Like TypeScript's template literals <code>`${program}${suffix}`</code>. The <code>!</code> means it's a <strong>macro</strong>, not a function.</li>
+      <li><code>std::env::consts::EXE_SUFFIX</code> &mdash; <code>.exe</code> on Windows, empty on Linux.</li>
+      <li><code>.map(|paths| ...)</code> &mdash; transforms the <code>Option</code> value if it exists. The <code>|paths|</code> is a closure parameter.</li>
+      <li><code>.any(|dir| ...)</code> &mdash; returns <code>true</code> if any element matches (like <code>.some()</code> in JavaScript).</li>
+      <li><code>.unwrap_or(false)</code> &mdash; if PATH isn't set, return <code>false</code> (like <code>?? false</code> in TypeScript).</li>
+    </ul>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">function</span> <span class="func">isInstalled</span>(program: <span class="type">string</span>): <span class="type">boolean</span> {
+  <span class="keyword">const</span> exe = `${program}${process.platform === <span class="string">'win32'</span> ? <span class="string">'.exe'</span> : <span class="string">''</span>}`;
+  <span class="keyword">const</span> pathEnv = process.env.PATH;
+  <span class="keyword">if</span> (!pathEnv) <span class="keyword">return false</span>;
+  <span class="keyword">return</span> pathEnv.split(process.platform === <span class="string">'win32'</span> ? <span class="string">';'</span> : <span class="string">':'</span>)
+    .some(dir =&gt; fs.existsSync(path.join(dir, exe)));
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ========== TRY_INSTALL ========== -->
+  <div class="section" id="try-install">
+    <h2>Helper: <code>try_install()</code> (Lines 83&ndash;110)</h2>
+
+    <pre><code><span class="keyword">fn</span> <span class="func">try_install</span>(package: &amp;<span class="type">str</span>) -&gt; <span class="type">Result</span>&lt;()&gt; {
+    <span class="keyword">let</span> managers: &amp;[(&amp;<span class="type">str</span>, &amp;[&amp;<span class="type">str</span>], <span class="type">bool</span>)] = &amp;[
+        (<span class="string">"apt-get"</span>, &amp;[<span class="string">"install"</span>, <span class="string">"-y"</span>], <span class="keyword">true</span>),
+        (<span class="string">"dnf"</span>,     &amp;[<span class="string">"install"</span>, <span class="string">"-y"</span>], <span class="keyword">true</span>),
+        (<span class="string">"pacman"</span>,  &amp;[<span class="string">"-S"</span>, <span class="string">"--noconfirm"</span>], <span class="keyword">true</span>),
+        (<span class="string">"brew"</span>,    &amp;[<span class="string">"install"</span>],        <span class="keyword">false</span>),
+    ];
+
+    <span class="keyword">let</span> (manager, args, needs_sudo) = managers
+        .iter()
+        .find(|(bin, _, _)| <span class="func">is_installed</span>(bin))
+        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"No supported package manager found"</span>))<span class="keyword">?</span>;
+
+    <span class="keyword">let</span> status = <span class="keyword">if</span> *needs_sudo {
+        Command::new(<span class="string">"sudo"</span>).arg(manager).args(*args).arg(package).status()
+    } <span class="keyword">else</span> {
+        Command::new(manager).args(*args).arg(package).status()
+    }
+    .with_context(|| <span class="macro">format!</span>(<span class="string">"Failed to run {} install"</span>, manager))<span class="keyword">?</span>;
+
+    <span class="keyword">if</span> !status.success() {
+        <span class="macro">anyhow::bail!</span>(<span class="string">"Installation of '{}' failed"</span>, package);
+    }
+    Ok(())
+}</code></pre>
+
+    <h3>Key concepts:</h3>
+
+    <ul>
+      <li><code>Result&lt;()&gt;</code> &mdash; the function can succeed (returning nothing, <code>()</code> = "unit", like <code>void</code>) or fail with an error. This is Rust's alternative to <code>try/catch</code>.</li>
+      <li><code>&amp;[(&amp;str, &amp;[&amp;str], bool)]</code> &mdash; a <strong>slice</strong> (reference to array) of <strong>tuples</strong>. Each tuple is <code>(package_manager, install_args, needs_sudo)</code>. TypeScript equivalent: <code>[string, string[], boolean][]</code>.</li>
+      <li><code>.find(|(bin, _, _)| ...)</code> &mdash; find the first match. <code>_</code> ignores unused tuple fields (like <code>_</code> in JS destructuring).</li>
+      <li><code>.ok_or_else(|| ...)?</code> &mdash; converts <code>None</code> to an error, then <code>?</code> propagates the error up to the caller. This is the <strong>heart of Rust error handling</strong>.</li>
+      <li><code>*needs_sudo</code> &mdash; the <code>*</code> <strong>dereferences</strong> the value (since <code>.find()</code> returned a reference).</li>
+      <li><code>anyhow::bail!(...)</code> &mdash; immediately return an error. Like <code>throw new Error(...)</code> in TypeScript.</li>
+      <li><code>Ok(())</code> &mdash; return success with no value. Every <code>Result</code>-returning function must explicitly return <code>Ok</code> or <code>Err</code>.</li>
+    </ul>
+
+    <div class="note">
+      <strong>The <code>?</code> operator</strong> is one of Rust's most important features. When placed after a <code>Result</code> or <code>Option</code>:
+      <ul>
+        <li>If <code>Ok(value)</code> &rarr; unwrap and continue</li>
+        <li>If <code>Err(e)</code> &rarr; immediately return the error from the current function</li>
+      </ul>
+      It's like TypeScript's <code>await</code> that either resolves or throws.
+    </div>
+  </div>
+
+  <!-- ========== TIMESTAMP ========== -->
+  <div class="section" id="timestamp">
+    <h2>Helper: <code>get_timestamp()</code> (Lines 113&ndash;115)</h2>
+
+    <pre><code><span class="keyword">fn</span> <span class="func">get_timestamp</span>() -&gt; <span class="type">String</span> {
+    chrono::Utc::now().format(<span class="string">"%Y-%m-%dT%H-%M-%S"</span>).to_string()
+}</code></pre>
+
+    <p>Uses the <code>chrono</code> crate (like <code>date-fns</code> or <code>dayjs</code> in Node.js). Gets the current UTC time and formats it.</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">function</span> <span class="func">getTimestamp</span>(): <span class="type">string</span> {
+  <span class="keyword">return new</span> Date().toISOString()
+    .replace(<span class="string">/[:.]/g</span>, <span class="string">'-'</span>)
+    .slice(0, 19);
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ========== RUN BACKUP ========== -->
+  <div class="section" id="run-backup">
+    <h2>Main Backup Logic: <code>run_backup()</code> (Lines 118&ndash;283)</h2>
+
+    <h3>Function signature</h3>
+    <pre><code><span class="keyword">fn</span> <span class="func">run_backup</span>(config: &amp;<span class="type">Config</span>, local_target: <span class="type">bool</span>) -&gt; <span class="type">Result</span>&lt;()&gt; {</code></pre>
+    <p><code>&amp;Config</code> borrows the config (read-only). Returns <code>Result&lt;()&gt;</code> (can fail).</p>
+
+    <h3>Hostname &amp; timestamp (Lines 119&ndash;122)</h3>
+    <pre><code><span class="keyword">let</span> hostname = hostname::get()<span class="keyword">?</span>
+    .to_string_lossy()
+    .replace(|c: <span class="type">char</span>| c.is_whitespace(), <span class="string">"_"</span>);
+<span class="keyword">let</span> timestamp = <span class="func">get_timestamp</span>();</code></pre>
+    <ul>
+      <li><code>hostname::get()?</code> gets machine hostname; <code>?</code> propagates any error.</li>
+      <li><code>.replace(|c: char| c.is_whitespace(), "_")</code> uses a closure to replace any whitespace character with underscore. Like <code>.replace(/\s/g, '_')</code> in JS.</li>
+    </ul>
+
+    <h3>Default compression (Line 124)</h3>
+    <pre><code><span class="keyword">let</span> compression = config.compression.as_deref().unwrap_or(<span class="string">"pixz"</span>);</code></pre>
+    <ul>
+      <li><code>.as_deref()</code> converts <code>Option&lt;String&gt;</code> to <code>Option&lt;&amp;str&gt;</code> (avoids taking ownership).</li>
+      <li><code>.unwrap_or("pixz")</code> defaults to <code>"pixz"</code> if <code>None</code>. Like <code>config.compression ?? 'pixz'</code>.</li>
+    </ul>
+
+    <h3>Prompt to install missing tool (Lines 127&ndash;141)</h3>
+    <pre><code><span class="keyword">if</span> !<span class="func">is_installed</span>(compression) {
+    <span class="macro">eprint!</span>(<span class="string">"'{}' is not installed. Install it now? [y/N] "</span>, compression);
+    io::stderr().flush().ok();
+    <span class="keyword">let mut</span> response = <span class="type">String</span>::new();
+    io::stdin().read_line(&amp;<span class="keyword">mut</span> response)
+        .with_context(|| <span class="string">"Failed to read input"</span>)<span class="keyword">?</span>;
+    <span class="keyword">if</span> response.trim().eq_ignore_ascii_case(<span class="string">"y"</span>) {
+        <span class="func">try_install</span>(compression)<span class="keyword">?</span>;
+    }
+}</code></pre>
+    <ul>
+      <li><code>eprint!()</code> prints to stderr (like <code>console.error()</code> without a newline).</li>
+      <li><code>String::new()</code> creates an empty string (like <code>let response = ""</code>).</li>
+      <li><code>&amp;mut response</code> passes a mutable reference so <code>read_line</code> can write into it.</li>
+      <li><code>.flush().ok()</code> flushes stderr, ignoring errors (<code>.ok()</code> discards the <code>Result</code>).</li>
+    </ul>
+
+    <h3>Pattern matching for file extension (Lines 144&ndash;147)</h3>
+    <pre><code><span class="keyword">let</span> ext = <span class="keyword">match</span> compression {
+    <span class="string">"pigz"</span> =&gt; <span class="string">"gz"</span>,
+    _ =&gt; <span class="string">"xz"</span>,
+};</code></pre>
+    <p><code>match</code> is Rust's pattern matching (like <code>switch</code> in TypeScript but more powerful). <code>_</code> is the catch-all (like <code>default:</code>).</p>
+
+    <h3>Validate include paths (Lines 151&ndash;163)</h3>
+    <pre><code><span class="keyword">let mut</span> valid_paths = <span class="type">Vec</span>::new();
+<span class="keyword">for</span> p <span class="keyword">in</span> &amp;config.include {
+    <span class="keyword">let</span> resolved = <span class="func">resolve_path</span>(p);
+    <span class="keyword">if</span> <span class="type">Path</span>::new(&amp;resolved).exists() {
+        valid_paths.push(resolved);
+    } <span class="keyword">else</span> {
+        <span class="macro">eprintln!</span>(<span class="string">"Warning: Path not found, skipping: {}"</span>, p);
+    }
+}
+<span class="keyword">if</span> valid_paths.is_empty() {
+    <span class="macro">anyhow::bail!</span>(<span class="string">"No valid backup paths found."</span>);
+}</code></pre>
+    <ul>
+      <li><code>Vec::new()</code> creates an empty dynamic array (like <code>const arr: string[] = []</code>).</li>
+      <li><code>for p in &amp;config.include</code> iterates by reference (borrowing, not consuming).</li>
+      <li><code>.push()</code> appends to the vector (like <code>.push()</code> in JS).</li>
+    </ul>
+
+    <h3>Building the tar command (Lines 174&ndash;191)</h3>
+    <pre><code><span class="keyword">let</span> cpus = <span class="func">max</span>(1, num_cpus::get() / 2);
+<span class="keyword">let</span> compress_cmd = <span class="macro">format!</span>(<span class="string">"{} -p {}"</span>, compression, cpus);
+
+<span class="keyword">let mut</span> cmd = Command::new(<span class="string">"tar"</span>);
+cmd.arg(compress_flag).arg(compress_cmd);
+<span class="keyword">for</span> p <span class="keyword">in</span> &amp;config.exclude {
+    cmd.arg(<span class="string">"--exclude"</span>).arg(p);
+}
+cmd.arg(<span class="string">"-cvf"</span>).arg(<span class="string">"-"</span>);
+<span class="keyword">for</span> p <span class="keyword">in</span> &amp;valid_paths {
+    cmd.arg(p);
+}
+cmd.stdin(Stdio::null())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::inherit());</code></pre>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">const</span> tar = spawn(<span class="string">'tar'</span>, [
+  <span class="string">'-I'</span>, `${compression} -p ${cpus}`,
+  ...exclude.flatMap(e =&gt; [<span class="string">'--exclude'</span>, e]),
+  <span class="string">'-cvf'</span>, <span class="string">'-'</span>,
+  ...validPaths
+], {
+  stdio: [<span class="string">'ignore'</span>, <span class="string">'pipe'</span>, <span class="string">'inherit'</span>]
+});</code></pre>
+    </div>
+
+    <h3>Local backup path (Lines 193&ndash;216)</h3>
+    <pre><code><span class="keyword">if</span> local_target {
+    <span class="keyword">let mut</span> file = fs::File::create(&amp;output_path)<span class="keyword">?</span>;
+    <span class="keyword">let mut</span> tar_process = cmd.spawn()<span class="keyword">?</span>;
+
+    <span class="keyword">if let</span> <span class="type">Some</span>(<span class="keyword">mut</span> stdout) = tar_process.stdout.take() {
+        io::copy(&amp;<span class="keyword">mut</span> stdout, &amp;<span class="keyword">mut</span> file)<span class="keyword">?</span>;
+    }
+
+    <span class="keyword">let</span> status = tar_process.wait()<span class="keyword">?</span>;
+}</code></pre>
+    <ul>
+      <li><code>fs::File::create()</code> creates a new file (like <code>fs.createWriteStream()</code>).</li>
+      <li><code>cmd.spawn()</code> launches the tar process.</li>
+      <li><code>.stdout.take()</code> takes ownership of stdout (can only be done once; the <code>Option</code> becomes <code>None</code> after).</li>
+      <li><code>io::copy()</code> streams data from tar stdout to file (like piping streams in Node.js).</li>
+      <li><code>tar_process.wait()</code> blocks until the process exits.</li>
+    </ul>
+
+    <h3>Remote SSH/SFTP path (Lines 217&ndash;280)</h3>
+    <pre><code><span class="comment">// Connect</span>
+<span class="keyword">let</span> tcp = TcpStream::connect(<span class="macro">format!</span>(<span class="string">"{}:{}"</span>, config.ssh_host, port))<span class="keyword">?</span>;
+<span class="keyword">let mut</span> session = Session::new()<span class="keyword">?</span>;
+session.set_tcp_stream(tcp);
+session.handshake()<span class="keyword">?</span>;
+
+<span class="comment">// Authenticate</span>
+<span class="keyword">if let</span> <span class="type">Some</span>(key_path) = &amp;config.ssh_private_key_path {
+    session.userauth_pubkey_file(&amp;config.ssh_user, <span class="type">None</span>, <span class="type">Path</span>::new(&amp;resolved), <span class="type">None</span>)<span class="keyword">?</span>;
+} <span class="keyword">else if let</span> <span class="type">Some</span>(pass) = &amp;config.ssh_password {
+    session.userauth_password(&amp;config.ssh_user, pass)<span class="keyword">?</span>;
+} <span class="keyword">else</span> {
+    <span class="macro">anyhow::bail!</span>(<span class="string">"No authentication method provided"</span>);
+}
+
+<span class="comment">// Stream via SFTP</span>
+<span class="keyword">let</span> sftp = session.sftp()<span class="keyword">?</span>;
+<span class="keyword">let mut</span> remote_stream = sftp.create(<span class="type">Path</span>::new(&amp;output_path))<span class="keyword">?</span>;
+io::copy(&amp;<span class="keyword">mut</span> stdout, &amp;<span class="keyword">mut</span> remote_stream)<span class="keyword">?</span>;</code></pre>
+
+    <ul>
+      <li><code>TcpStream::connect()</code> opens a TCP socket (like <code>net.connect()</code> in Node.js).</li>
+      <li><code>Session::new()</code> creates an SSH session object.</li>
+      <li><code>.handshake()</code> performs the SSH protocol negotiation.</li>
+      <li><code>if let Some(...) else if let Some(...)</code> chains handle the optional auth fields.</li>
+      <li><code>sftp.create()</code> creates a file on the remote server.</li>
+      <li><code>io::copy()</code> streams tar output directly into the remote file &mdash; no temp file needed.</li>
+    </ul>
+
+    <pre><code>Ok(())</code></pre>
+    <p>Function ends by returning <code>Ok(())</code> &mdash; success with no value. Every <code>Result</code>-returning function must explicitly return this.</p>
+  </div>
+
+  <!-- ========== MAIN ========== -->
+  <div class="section" id="main">
+    <h2>Main Function (Lines 285&ndash;354)</h2>
+
+    <pre><code><span class="keyword">fn</span> <span class="func">main</span>() {</code></pre>
+    <p>Rust's entry point. Unlike Node.js where the top-level file just runs, Rust requires a <code>main()</code> function.</p>
+
+    <h3>Parse CLI arguments (Lines 287&ndash;297)</h3>
+    <pre><code><span class="keyword">let</span> cli = <span class="type">Cli</span>::try_parse().unwrap_or_else(|e| {
+    <span class="keyword">match</span> e.kind() {
+        clap::error::ErrorKind::DisplayHelp =&gt; e.exit(),
+        _ =&gt; {
+            <span class="keyword">let</span> _ = <span class="type">Cli</span>::command().print_help();
+            <span class="macro">eprintln!</span>(<span class="string">"\n\nerror: {}"</span>, e.kind());
+            std::process::exit(2);
+        }
+    }
+});</code></pre>
+    <ul>
+      <li><code>Cli::try_parse()</code> parses <code>process.argv</code> into the <code>Cli</code> struct.</li>
+      <li><code>.unwrap_or_else(|e| ...)</code> handles errors with a closure.</li>
+      <li><code>match e.kind()</code> branches on the error type (was it <code>--help</code> or a real error?).</li>
+      <li><code>std::process::exit(2)</code> exits the process (like <code>process.exit(2)</code> in Node.js).</li>
+    </ul>
+
+    <h3>Load config (Lines 300&ndash;323)</h3>
+    <pre><code><span class="keyword">let</span> config_path = env::current_dir().unwrap_or_default().join(<span class="string">"config.json"</span>);
+
+<span class="keyword">let</span> config_content = <span class="keyword">if</span> config_path.exists() {
+    <span class="keyword">match</span> fs::read_to_string(&amp;config_path) {
+        Ok(c) =&gt; c,
+        Err(e) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Error loading config.json: {}"</span>, e);
+            std::process::exit(1);
+        }
+    }
+} <span class="keyword">else</span> {
+    <span class="comment">// Write example config and exit</span>
+    <span class="keyword">let</span> example_path = env::current_dir().unwrap_or_default().join(<span class="string">"config.example.json"</span>);
+    fs::write(&amp;example_path, <span class="macro">include_str!</span>(<span class="string">"config.example.json"</span>));
+    std::process::exit(1);
+};</code></pre>
+    <ul>
+      <li><code>env::current_dir()</code> = <code>process.cwd()</code></li>
+      <li><code>.join("config.json")</code> = <code>path.join(cwd, "config.json")</code></li>
+      <li><code>fs::read_to_string()</code> = <code>fs.readFileSync(path, 'utf8')</code></li>
+      <li><code>include_str!("...")</code> embeds a file's contents into the binary <strong>at compile time</strong>. There's no TypeScript equivalent &mdash; it would be like bundling a file as a string constant.</li>
+    </ul>
+
+    <h3>Parse JSON (Lines 325&ndash;331)</h3>
+    <pre><code><span class="keyword">let mut</span> config: <span class="type">Config</span> = <span class="keyword">match</span> serde_json::from_str(&amp;config_content) {
+    Ok(c) =&gt; c,
+    Err(e) =&gt; {
+        <span class="macro">eprintln!</span>(<span class="string">"Error parsing config.json: {}"</span>, e);
+        std::process::exit(1);
+    }
+};</code></pre>
+    <p><code>serde_json::from_str()</code> deserializes a JSON string into the <code>Config</code> struct. Unlike TypeScript's <code>JSON.parse()</code> which returns <code>any</code>, this is <strong>type-safe at compile time</strong> &mdash; missing or wrong fields cause an error.</p>
+
+    <h3>Apply CLI overrides (Lines 334&ndash;345)</h3>
+    <pre><code><span class="keyword">if let</span> <span class="type">Some</span>(compression) = cli.compression {
+    config.compression = <span class="type">Some</span>(compression);
+}
+<span class="keyword">if let</span> <span class="type">Some</span>(target) = cli.target {
+    config.target = target;
+}
+<span class="keyword">if</span> !cli.include.is_empty() {
+    config.include = cli.include;
+}
+<span class="keyword">if</span> !cli.exclude.is_empty() {
+    config.exclude = cli.exclude;
+}</code></pre>
+    <p>CLI arguments override config file settings. <code>if let Some(x) = ...</code> destructures the <code>Option</code> &mdash; only runs if the value was provided.</p>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">if</span> (cli.compression) config.compression = cli.compression;
+<span class="keyword">if</span> (cli.target) config.target = cli.target;
+<span class="keyword">if</span> (cli.include.length) config.include = cli.include;
+<span class="keyword">if</span> (cli.exclude.length) config.exclude = cli.exclude;</code></pre>
+    </div>
+
+    <h3>Run backup &amp; handle result (Lines 348&ndash;353)</h3>
+    <pre><code><span class="keyword">if let</span> Err(e) = <span class="func">run_backup</span>(&amp;config, cli.local_target) {
+    <span class="macro">eprintln!</span>(<span class="string">"\nBackup failed: {:#}"</span>, e);
+    std::process::exit(1);
+} <span class="keyword">else</span> {
+    <span class="macro">println!</span>(<span class="string">"\nBackup completed successfully!"</span>);
+}</code></pre>
+    <ul>
+      <li><code>if let Err(e) = ...</code> checks if the result was an error.</li>
+      <li><code>{:#}</code> formats the error with full context chain (all the <code>.with_context()</code> messages).</li>
+    </ul>
+
+    <div class="equiv">
+      <pre><code><span class="keyword">try</span> {
+  <span class="func">runBackup</span>(config, cli.localTarget);
+  console.log(<span class="string">"\nBackup completed successfully!"</span>);
+} <span class="keyword">catch</span> (e) {
+  console.error(`\nBackup failed: ${e.message}`);
+  process.exit(1);
+}</code></pre>
+    </div>
+  </div>
+
+  <!-- ========== REFERENCE TABLE ========== -->
+  <div class="section" id="reference">
+    <h2>Quick Reference: Rust vs TypeScript</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Rust</th>
+          <th>TypeScript</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>let x = 5;</code></td>
+          <td><code>const x = 5;</code></td>
+          <td>Immutable binding</td>
+        </tr>
+        <tr>
+          <td><code>let mut x = 5;</code></td>
+          <td><code>let x = 5;</code></td>
+          <td>Mutable variable</td>
+        </tr>
+        <tr>
+          <td><code>&amp;str</code> / <code>&amp;Type</code></td>
+          <td><code>string</code> / <code>Type</code></td>
+          <td>Borrowed reference (read-only)</td>
+        </tr>
+        <tr>
+          <td><code>&amp;mut Type</code></td>
+          <td><code>Type</code> (by reference)</td>
+          <td>Mutable reference</td>
+        </tr>
+        <tr>
+          <td><code>Option&lt;T&gt;</code></td>
+          <td><code>T | undefined</code></td>
+          <td>Value might not exist</td>
+        </tr>
+        <tr>
+          <td><code>Result&lt;T, E&gt;</code></td>
+          <td><code>throws Error</code> / <code>Promise&lt;T&gt;</code></td>
+          <td>Operation might fail</td>
+        </tr>
+        <tr>
+          <td><code>?</code> operator</td>
+          <td><code>await</code> or <code>throw</code></td>
+          <td>Error propagation</td>
+        </tr>
+        <tr>
+          <td><code>match</code></td>
+          <td><code>switch</code> / <code>if-else</code></td>
+          <td>Pattern matching</td>
+        </tr>
+        <tr>
+          <td><code>|| { }</code> (closure)</td>
+          <td><code>() =&gt; { }</code> (arrow fn)</td>
+          <td>Anonymous function</td>
+        </tr>
+        <tr>
+          <td><code>Vec&lt;T&gt;</code></td>
+          <td><code>T[]</code> / <code>Array&lt;T&gt;</code></td>
+          <td>Dynamic array</td>
+        </tr>
+        <tr>
+          <td><code>struct</code></td>
+          <td><code>interface</code> / <code>type</code></td>
+          <td>Data structure</td>
+        </tr>
+        <tr>
+          <td><code>.unwrap()</code></td>
+          <td><code>!</code> (non-null assertion)</td>
+          <td>Extract value or panic</td>
+        </tr>
+        <tr>
+          <td><code>.unwrap_or(default)</code></td>
+          <td><code>?? default</code></td>
+          <td>Provide fallback value</td>
+        </tr>
+        <tr>
+          <td><code>format!("{}", x)</code></td>
+          <td><code>`${x}`</code></td>
+          <td>String interpolation</td>
+        </tr>
+        <tr>
+          <td><code>println!()</code></td>
+          <td><code>console.log()</code></td>
+          <td>Print to stdout</td>
+        </tr>
+        <tr>
+          <td><code>eprintln!()</code></td>
+          <td><code>console.error()</code></td>
+          <td>Print to stderr</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========== SUMMARY ========== -->
+  <div class="section" id="summary">
+    <h2>Summary</h2>
+
+    <p>This is a <strong>production-grade backup tool</strong> that:</p>
+
+    <ul class="summary-list">
+      <li><strong>Parses CLI arguments</strong> using <code>clap</code> (like <code>commander.js</code>)</li>
+      <li><strong>Loads JSON config</strong> using <code>serde</code> (type-safe <code>JSON.parse()</code>)</li>
+      <li><strong>Validates paths</strong> and prompts to install missing compression tools</li>
+      <li><strong>Spawns a tar process</strong> with multi-threaded compression</li>
+      <li><strong>Streams output</strong> either to a local file or over SSH/SFTP</li>
+      <li><strong>Handles errors</strong> gracefully with contextual messages</li>
+    </ul>
+
+    <div class="note" style="margin-top: 1.5rem;">
+      <strong>Key difference from Node.js:</strong> Rust code is <strong>type-safe</strong> (no <code>any</code>), <strong>memory-safe</strong> (no garbage collector &mdash; uses ownership &amp; borrowing), and compiles to a <strong>single native binary</strong> with no runtime dependencies. The trade-off is more verbose syntax and a steeper learning curve, but you get zero-cost abstractions and predictable performance.
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
